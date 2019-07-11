@@ -25,10 +25,6 @@
 //-------------------------------------------------------------------------------------------
 // Definitions
 
-#define sampleFreqDef   512.0f          // sample frequency in Hz
-#define betaDef         1.0f            // 2 * proportional gain
-
-
 //============================================================================================
 // Functions
 
@@ -36,32 +32,27 @@
 // AHRS algorithm update
 
 Madgwick::Madgwick() {
-	beta = betaDef;
 	q0 = 1.0f;
 	q1 = 0.0f;
 	q2 = 0.0f;
 	q3 = 0.0f;
-	invSampleFreq = 1.0f / sampleFreqDef;
 	anglesComputed = 0;
 }
 
-void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz) {
+void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float *bx, float *by, float *bz) {
 	float recipNorm;
 	float s0, s1, s2, s3;
 	float qDot1, qDot2, qDot3, qDot4;
+	float qDot1_b, qDot2_b, qDot3_b, qDot4_b;
+	float w_err_x, w_err_y, w_err_z;
 	float hx, hy;
-	float _2q0mx, _2q0my, _2q0mz, _2q1mx, _2bx, _2bz, _4bx, _4bz, _2q0, _2q1, _2q2, _2q3, _2q0q2, _2q2q3, q0q0, q0q1, q0q2, q0q3, q1q1, q1q2, q1q3, q2q2, q2q3, q3q3;
+	float _05q0, _05q1, _05q2, _05q3, _2q0mx, _2q0my, _2q0mz, _2q1mx, _2bx, _2bz, _4bx, _4bz, _2q0, _2q1, _2q2, _2q3, _2q0q2, _2q2q3, q0q0, q0q1, q0q2, q0q3, q1q1, q1q2, q1q3, q2q2, q2q3, q3q3;
 
 	// Use IMU algorithm if magnetometer measurement invalid (avoids NaN in magnetometer normalisation)
 	if((mx == 0.0f) && (my == 0.0f) && (mz == 0.0f)) {
-		updateIMU(dt, gx, gy, gz, ax, ay, az);
+		updateIMU(dt, gx, gy, gz, ax, ay, az, bx, by, bz);
 		return;
 	}
-
-	// Convert gyroscope degrees/sec to radians/sec
-	gx *= 0.0174533f;
-	gy *= 0.0174533f;
-	gz *= 0.0174533f;
 
 	// Rate of change of quaternion from gyroscope
 	qDot1 = 0.5f * (-q1 * gx - q2 * gy - q3 * gz);
@@ -85,6 +76,10 @@ void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay
 		mz *= recipNorm;
 
 		// Auxiliary variables to avoid repeated arithmetic
+		_05q0 = 0.5f * q0;
+		_05q1 = 0.5f * q1;
+		_05q2 = 0.5f * q2;
+		_05q3 = 0.5f * q3;
 		_2q0mx = 2.0f * q0 * mx;
 		_2q0my = 2.0f * q0 * my;
 		_2q0mz = 2.0f * q0 * mz;
@@ -125,11 +120,30 @@ void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay
 		s2 *= recipNorm;
 		s3 *= recipNorm;
 
-		// Apply feedback step
-		qDot1 -= beta * s0;
-		qDot2 -= beta * s1;
-		qDot3 -= beta * s2;
-		qDot4 -= beta * s3;
+		// compute angular estimated direction of the gyroscope error
+		w_err_x = _2q0 * s1 - _2q1 * s0 - _2q2 * s3 + _2q3 * s2;
+		w_err_y = _2q0 * s2 + _2q1 * s3 - _2q2 * s0 - _2q3 * s1;
+		w_err_z = _2q0 * s3 - _2q1 * s2 + _2q2 * s1 - _2q3 * s0;
+
+		// compute and remove the gyroscope biaises
+		*bx += w_err_x * dt * zeta;
+		*by += w_err_y * dt * zeta;
+		*bz += w_err_z * dt * zeta;
+		gx -= *bx;
+		gy -= *by;
+		gz -= *bz;
+
+		// compute the quaternion rate measured by gyroscopes
+		qDot1_b = -_05q1 * gx - _05q2 * gy - _05q3 * gz;
+		qDot2_b = _05q0 * gx + _05q2 * gz - _05q3 * gy;
+		qDot3_b = _05q0 * gy - _05q1 * gz + _05q3 * gx;
+		qDot4_b = _05q0 * gz + _05q1 * gy - _05q2 * gx;
+
+		// compute then integrate the estimated quaternion
+		qDot1 += (qDot1_b - (beta * s0));
+		qDot2 += (qDot2_b - (beta * s1));
+		qDot3 += (qDot3_b - (beta * s2));
+		qDot4 += (qDot4_b - (beta * s3));
 	}
 
 	// Integrate rate of change of quaternion to yield quaternion
@@ -150,16 +164,13 @@ void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay
 //-------------------------------------------------------------------------------------------
 // IMU algorithm update
 
-void Madgwick::updateIMU(float dt, float gx, float gy, float gz, float ax, float ay, float az) {
+void Madgwick::updateIMU(float dt, float gx, float gy, float gz, float ax, float ay, float az, float *bx, float *by, float *bz) {
 	float recipNorm;
 	float s0, s1, s2, s3;
 	float qDot1, qDot2, qDot3, qDot4;
-	float _2q0, _2q1, _2q2, _2q3, _4q0, _4q1, _4q2 ,_8q1, _8q2, q0q0, q1q1, q2q2, q3q3;
-
-	// Convert gyroscope degrees/sec to radians/sec
-	gx *= 0.0174533f;
-	gy *= 0.0174533f;
-	gz *= 0.0174533f;
+	float qDot1_b, qDot2_b, qDot3_b, qDot4_b;
+	float w_err_x, w_err_y, w_err_z;
+	float _05q0, _05q1, _05q2, _05q3,_2q0, _2q1, _2q2, _2q3, _4q0, _4q1, _4q2 ,_8q1, _8q2, q0q0, q1q1, q2q2, q3q3;
 
 	// Rate of change of quaternion from gyroscope
 	qDot1 = 0.5f * (-q1 * gx - q2 * gy - q3 * gz);
@@ -177,6 +188,10 @@ void Madgwick::updateIMU(float dt, float gx, float gy, float gz, float ax, float
 		az *= recipNorm;
 
 		// Auxiliary variables to avoid repeated arithmetic
+		_05q0 = 0.5f * q0;
+		_05q1 = 0.5f * q1;
+		_05q2 = 0.5f * q2;
+		_05q3 = 0.5f * q3;
 		_2q0 = 2.0f * q0;
 		_2q1 = 2.0f * q1;
 		_2q2 = 2.0f * q2;
@@ -202,11 +217,30 @@ void Madgwick::updateIMU(float dt, float gx, float gy, float gz, float ax, float
 		s2 *= recipNorm;
 		s3 *= recipNorm;
 
-		// Apply feedback step
-		qDot1 -= beta * s0;
-		qDot2 -= beta * s1;
-		qDot3 -= beta * s2;
-		qDot4 -= beta * s3;
+		// compute angular estimated direction of the gyroscope error
+		w_err_x = _2q0 * s1 - _2q1 * s0 - _2q2 * s3 + _2q3 * s2;
+		w_err_y = _2q0 * s2 + _2q1 * s3 - _2q2 * s0 - _2q3 * s1;
+		w_err_z = _2q0 * s3 - _2q1 * s2 + _2q2 * s1 - _2q3 * s0;
+
+		// compute and remove the gyroscope biaises
+		*bx += w_err_x * dt * zeta;
+		*by += w_err_y * dt * zeta;
+		*bz += w_err_z * dt * zeta;
+		gx -= *bx;
+		gy -= *by;
+		gz -= *bz;
+
+		// compute the quaternion rate measured by gyroscopes
+		qDot1_b = -_05q1 * gx - _05q2 * gy - _05q3 * gz;
+		qDot2_b = _05q0 * gx + _05q2 * gz - _05q3 * gy;
+		qDot3_b = _05q0 * gy - _05q1 * gz + _05q3 * gx;
+		qDot4_b = _05q0 * gz + _05q1 * gy - _05q2 * gx;
+
+		// compute then integrate the estimated quaternion
+		qDot1 += (qDot1_b - (beta * s0));
+		qDot2 += (qDot2_b - (beta * s1));
+		qDot3 += (qDot3_b - (beta * s2));
+		qDot4 += (qDot4_b - (beta * s3));
 	}
 
 	// Integrate rate of change of quaternion to yield quaternion
@@ -248,4 +282,3 @@ void Madgwick::computeAngles()
 	yaw = atan2f(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3);
 	anglesComputed = 1;
 }
-

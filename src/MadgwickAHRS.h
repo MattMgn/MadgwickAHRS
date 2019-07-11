@@ -23,12 +23,16 @@
 class Madgwick{
 private:
     static float invSqrt(float x);
-    float beta;				// algorithm gain
+    /* fusion gain */
+    float beta;
+    /* bias gain */
+    float zeta;
+    /* quaternion of sensor frame relative to auxiliary frame */
     float q0;
     float q1;
     float q2;
-    float q3;	// quaternion of sensor frame relative to auxiliary frame
-    float invSampleFreq;
+    float q3;
+    /* euler angles from ZYX quaternion decomposition */
     float roll;
     float pitch;
     float yaw;
@@ -39,23 +43,27 @@ private:
 // Function declarations
 public:
     Madgwick(void);
-    void begin(float sampleFrequency) { invSampleFreq = 1.0f / sampleFrequency; }
-    void update(float dt, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
-    void updateIMU(float dt, float gx, float gy, float gz, float ax, float ay, float az);
-    //float getPitch(){return atan2f(2.0f * q2 * q3 - 2.0f * q0 * q1, 2.0f * q0 * q0 + 2.0f * q3 * q3 - 1.0f);};
-    //float getRoll(){return -1.0f * asinf(2.0f * q1 * q3 + 2.0f * q0 * q2);};
-    //float getYaw(){return atan2f(2.0f * q1 * q2 - 2.0f * q0 * q3, 2.0f * q0 * q0 + 2.0f * q1 * q1 - 1.0f);};
+    void begin(float fusionGain, float biasGain) { beta = fusionGain; zeta = biasGain; };
+    /* 
+     * dt : time interval in sec
+     * gx,gy,gz : gyro in rad/s
+     * ax,ay,az : accelero in g
+     * mx, my, mz : magneto in gauss
+     * bx, by, bz : gyro bias in rad/s
+     */
+    void update(float dt, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float *bx, float *by, float *bz);
+    void updateIMU(float dt, float gx, float gy, float gz, float ax, float ay, float az, float *bx, float *by, float *bz);
     float getRoll() {
         if (!anglesComputed) computeAngles();
-        return roll * 57.29578f;
+        return roll;
     }
     float getPitch() {
         if (!anglesComputed) computeAngles();
-        return pitch * 57.29578f;
+        return pitch;
     }
     float getYaw() {
         if (!anglesComputed) computeAngles();
-        return yaw * 57.29578f;
+        return yaw;
     }
     float getRollRadians() {
         if (!anglesComputed) computeAngles();
