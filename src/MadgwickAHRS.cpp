@@ -36,7 +36,6 @@ Madgwick::Madgwick() {
 	q1 = 0.0f;
 	q2 = 0.0f;
 	q3 = 0.0f;
-	anglesComputed = 0;
 }
 
 void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float *bx, float *by, float *bz) {
@@ -158,7 +157,6 @@ void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay
 	q1 *= recipNorm;
 	q2 *= recipNorm;
 	q3 *= recipNorm;
-	anglesComputed = 0;
 }
 
 //-------------------------------------------------------------------------------------------
@@ -255,7 +253,6 @@ void Madgwick::updateIMU(float dt, float gx, float gy, float gz, float ax, float
 	q1 *= recipNorm;
 	q2 *= recipNorm;
 	q3 *= recipNorm;
-	anglesComputed = 0;
 }
 
 //-------------------------------------------------------------------------------------------
@@ -275,10 +272,21 @@ float Madgwick::invSqrt(float x) {
 
 //-------------------------------------------------------------------------------------------
 
-void Madgwick::computeAngles()
+void Madgwick::getAngles(float angles[3])
 {
 	roll = atan2f(q0*q1 + q2*q3, 0.5f - q1*q1 - q2*q2);
 	pitch = asinf(-2.0f * (q1*q3 - q0*q2));
 	yaw = atan2f(q1*q2 + q0*q3, 0.5f - q2*q2 - q3*q3);
-	anglesComputed = 1;
+
+	angles[0] = roll;
+	angles[1] = pitch;
+	angles[2] = yaw;
+}
+
+void Madgwick::getQuaternion(float quaternion[4])
+{
+	quaternion[0] = q0;
+	quaternion[1] = q1;
+	quaternion[2] = q2;
+	quaternion[3] = q3;
 }

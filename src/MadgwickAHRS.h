@@ -12,6 +12,7 @@
 // Date			Author          Notes
 // 29/09/2011	SOH Madgwick    Initial release
 // 02/10/2011	SOH Madgwick	Optimised for reduced CPU load
+// 24/06/2019   Matthieu Magnon Compute gyro bias
 //
 //=============================================================================================
 #ifndef MadgwickAHRS_h
@@ -36,7 +37,6 @@ private:
     float roll;
     float pitch;
     float yaw;
-    char anglesComputed;
     void computeAngles();
 
 //-------------------------------------------------------------------------------------------
@@ -46,37 +46,16 @@ public:
     void begin(float fusionGain, float biasGain) { beta = fusionGain; zeta = biasGain; };
     /* 
      * dt : time interval in sec
-     * gx,gy,gz : gyro in rad/s
-     * ax,ay,az : accelero in g
+     * gx, gy, gz : gyro in rad/s
+     * ax, ay, az : accelero in g
      * mx, my, mz : magneto in gauss
      * bx, by, bz : gyro bias in rad/s
      */
     void update(float dt, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float *bx, float *by, float *bz);
     void updateIMU(float dt, float gx, float gy, float gz, float ax, float ay, float az, float *bx, float *by, float *bz);
-    float getRoll() {
-        if (!anglesComputed) computeAngles();
-        return roll;
-    }
-    float getPitch() {
-        if (!anglesComputed) computeAngles();
-        return pitch;
-    }
-    float getYaw() {
-        if (!anglesComputed) computeAngles();
-        return yaw;
-    }
-    float getRollRadians() {
-        if (!anglesComputed) computeAngles();
-        return roll;
-    }
-    float getPitchRadians() {
-        if (!anglesComputed) computeAngles();
-        return pitch;
-    }
-    float getYawRadians() {
-        if (!anglesComputed) computeAngles();
-        return yaw;
-    }
+    void getAngles(float angles[3]);
+    void getQuaternion(float quaternion[4]);
+
 };
 #endif
 
