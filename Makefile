@@ -2,7 +2,7 @@ CC = g++ # define the C/C++ compiler to use
 CFLAGS = -Wall -Wextra -pedantic -fPIC
 # define any directories containing header files other than /usr/include
 #INCLUDES = -I/home/some_directory
-INCLUDES = -Iinclude/
+INCLUDES = -Isrc/
 # define the C++ source files
 SRCS = src/MadgwickAHRS.cpp 
 # define the C/C++ object files 
