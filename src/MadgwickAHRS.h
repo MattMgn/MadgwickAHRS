@@ -25,19 +25,23 @@ class Madgwick{
 private:
     static float invSqrt(float x);
     /* fusion gain */
-    float beta;
+    float beta = 0.f;
     /* bias gain */
-    float zeta;
+    float zeta = 0.f;
     /* quaternion of sensor frame relative to auxiliary frame */
-    float q0;
-    float q1;
-    float q2;
-    float q3;
+    float q0 = 1.f;
+    float q1 = 0.f;
+    float q2 = 0.f;
+    float q3 = 0.f;
     /* euler angles from ZYX quaternion decomposition */
-    float roll;
-    float pitch;
-    float yaw;
+    float roll = 0.f;
+    float pitch = 0.f;
+    float yaw = 0.f;
     void computeAngles();
+    /* gyro bias [rad/s] */
+    float bx = 0.f;
+    float by = 0.f;
+    float bz = 0.f;
 
 //-------------------------------------------------------------------------------------------
 // Function declarations
@@ -51,10 +55,12 @@ public:
      * mx, my, mz : magneto in gauss
      * bx, by, bz : gyro bias in rad/s
      */
-    void update(float dt, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float *bx, float *by, float *bz);
-    void updateIMU(float dt, float gx, float gy, float gz, float ax, float ay, float az, float *bx, float *by, float *bz);
+    void update(float dt, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz);
+    void updateIMU(float dt, float gx, float gy, float gz, float ax, float ay, float az);
     void getAngles(float angles[3]);
     void getQuaternion(float quaternion[4]);
+    void setGyroBias(const float bias[3]);
+    void getGyroBias(float bias[3]);
 
 };
 #endif

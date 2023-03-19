@@ -38,7 +38,7 @@ Madgwick::Madgwick() {
 	q3 = 0.0f;
 }
 
-void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float *bx, float *by, float *bz) {
+void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz) {
 	float recipNorm;
 	float s0, s1, s2, s3;
 	float qDot1, qDot2, qDot3, qDot4;
@@ -49,7 +49,7 @@ void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay
 
 	// Use IMU algorithm if magnetometer measurement invalid (avoids NaN in magnetometer normalisation)
 	if((mx == 0.0f) && (my == 0.0f) && (mz == 0.0f)) {
-		updateIMU(dt, gx, gy, gz, ax, ay, az, bx, by, bz);
+		updateIMU(dt, gx, gy, gz, ax, ay, az);
 		return;
 	}
 
@@ -125,12 +125,12 @@ void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay
 		w_err_z = _2q0 * s3 - _2q1 * s2 + _2q2 * s1 - _2q3 * s0;
 
 		// compute and remove the gyroscope biaises
-		*bx += w_err_x * dt * zeta;
-		*by += w_err_y * dt * zeta;
-		*bz += w_err_z * dt * zeta;
-		gx -= *bx;
-		gy -= *by;
-		gz -= *bz;
+		bx += w_err_x * dt * zeta;
+		by += w_err_y * dt * zeta;
+		bz += w_err_z * dt * zeta;
+		gx -= bx;
+		gy -= by;
+		gz -= bz;
 
 		// compute the quaternion rate measured by gyroscopes
 		qDot1_b = -_05q1 * gx - _05q2 * gy - _05q3 * gz;
@@ -162,7 +162,7 @@ void Madgwick::update(float dt, float gx, float gy, float gz, float ax, float ay
 //-------------------------------------------------------------------------------------------
 // IMU algorithm update
 
-void Madgwick::updateIMU(float dt, float gx, float gy, float gz, float ax, float ay, float az, float *bx, float *by, float *bz) {
+void Madgwick::updateIMU(float dt, float gx, float gy, float gz, float ax, float ay, float az) {
 	float recipNorm;
 	float s0, s1, s2, s3;
 	float qDot1, qDot2, qDot3, qDot4;
@@ -221,12 +221,12 @@ void Madgwick::updateIMU(float dt, float gx, float gy, float gz, float ax, float
 		w_err_z = _2q0 * s3 - _2q1 * s2 + _2q2 * s1 - _2q3 * s0;
 
 		// compute and remove the gyroscope biaises
-		*bx += w_err_x * dt * zeta;
-		*by += w_err_y * dt * zeta;
-		*bz += w_err_z * dt * zeta;
-		gx -= *bx;
-		gy -= *by;
-		gz -= *bz;
+		bx += w_err_x * dt * zeta;
+		by += w_err_y * dt * zeta;
+		bz += w_err_z * dt * zeta;
+		gx -= bx;
+		gy -= by;
+		gz -= bz;
 
 		// compute the quaternion rate measured by gyroscopes
 		qDot1_b = -_05q1 * gx - _05q2 * gy - _05q3 * gz;
@@ -289,4 +289,24 @@ void Madgwick::getQuaternion(float quaternion[4])
 	quaternion[1] = q1;
 	quaternion[2] = q2;
 	quaternion[3] = q3;
+}
+
+void Madgwick::setGyroBias(const float bias[3])
+{
+	if (!bias)
+		return;
+
+	bx = bias[0];
+	by = bias[1];
+	bz = bias[2];
+}
+
+void Madgwick::getGyroBias(float bias[3])
+{
+	if (!bias)
+		return;
+
+	bias[0] = bx;
+	bias[1] = by;
+	bias[2] = bz;
 }
